@@ -7,30 +7,37 @@ from PIL import Image, ImageOps, ImageTk
 
 def process_selected(tlist):
     # !
-    pos = "true_positive"
-
+    pos = "positive"
+    neg = "negative"
     # Make the folder the true positives should be in
     if len(tlist) > 0:
         # Current folder
-        imdir = os.path.dirname(tlist[0])
-        print(imdir)
+        imdir = os.path.dirname(tlist[0][0])
+        # Create positive
         new = os.path.join(imdir, pos)
         if not os.path.exists(new):
             os.mkdir(new)
-        print(new)
+        # Create negative
+        new = os.path.join(imdir, neg)
+        if not os.path.exists(new):
+            os.mkdir(new)
 
     # Move selected images to the new directory
-    for item in tlist:
-        # Filename
+    for item, sel in tlist:
+        # Only select filename
         imfile = os.path.basename(item)
         print(imfile)
-        new = os.path.join(imdir, pos, imfile)
+        if sel == 1:
+            new = os.path.join(imdir, pos, imfile)
+        else:
+            new = os.path.join(imdir, neg, imfile)
         os.replace(item, new)
+
 
 
 def add_images(path, root):
     imlist = glob.glob(path+"*.png")
-    trues = []
+    selected = []
     for i in range(0, 10):
         for j in range(0, 10):
             imindex = (i * 10) + j
@@ -48,15 +55,16 @@ def add_images(path, root):
             label.path = p
             label.clicked = 0
             label.grid(row=i, column=j)
-            label.bind("<Button-1>", lambda x, y=trues: select_image(x, y))
+            selected.append((label.path, label.clicked))
+            label.bind("<Button-1>", lambda x, y=selected: select_image(x, y))
 
     ha = tk.Button(
         root,
         text="Done",
-        command=lambda x=trues: process_selected(x)).grid(row=10, sticky="S")
+        command=lambda x=selected: process_selected(x)).grid(row=10, sticky="S")
 
 
-def select_image(imp, trues):
+def select_image(imp, selected):
     """
     Selects an image to be a true positive
     """
@@ -68,8 +76,9 @@ def select_image(imp, trues):
         imp.widget.configure(image=new_pim)
         imp.widget.pimage = new_pim
         imp.widget.image = new_im
-        trues.remove(imp.widget.path)
+        selected.remove((imp.widget.path, 1))
         imp.widget.clicked = 0
+        selected.append((imp.widget.path, 0))
     else:
         print("Clicked {}".format(imp.widget.path))
         new_im = ImageOps.expand(imp.widget.image, border=5, fill='red')
@@ -77,8 +86,9 @@ def select_image(imp, trues):
         imp.widget.configure(image=new_pim)
         imp.widget.pimage = new_pim
         imp.widget.image = new_im
-        trues.append(imp.widget.path)
+        selected.remove((imp.widget.path, 0))
         imp.widget.clicked = 1
+        selected.append((imp.widget.path, 1))
 
 
 if __name__ == '__main__':
