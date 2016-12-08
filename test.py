@@ -10,7 +10,11 @@ class GUI():
     def __init__(self, folder):
         self.root = tk.Tk()
         self.add_images(folder, self.root)
-        self.root.mainloop()
+        try:
+            self.root.mainloop()
+        except KeyboardInterrupt as e:
+            print("Ctrl-C pressed, exiting cleanly..")
+            self.exit()
 
     def process_selected(self, tlist):
         """
@@ -57,7 +61,6 @@ class GUI():
                 if imindex >= len(imlist):
                     break
                 p = imlist[imindex]
-
                 im = Image.open(p)
                 pim = ImageTk.PhotoImage(im)
                 print("showing {}".format(p))
@@ -68,12 +71,21 @@ class GUI():
                 label.clicked = 0
                 label.grid(row=i, column=j)
                 selected.append((label.path, label.clicked))
-                label.bind("<Button-1>", lambda x, y=selected: self.select_image(x, y))
+                label.bind(
+                    "<Button-1>",
+                    lambda x, y=selected: self.select_image(x, y)
+                )
 
         ha = tk.Button(
-            root,
-            text="Done",
-            command=lambda x=selected: self.process_selected(x)).grid(row=10, sticky="S")
+                root,
+                text="Done",
+                command=lambda x=selected: self.process_selected(x)
+            ).grid(row=10, column=0, sticky="S")
+        ha = tk.Button(
+                root,
+                text="Quit",
+                command=self.exit
+            ).grid(row=10, column=1, sticky="E")
 
     def select_image(self, imp, selected):
         """
@@ -100,6 +112,10 @@ class GUI():
             selected.remove((imp.widget.path, 0))
             imp.widget.clicked = 1
             selected.append((imp.widget.path, 1))
+
+    def exit(self):
+        self.root.destroy()
+        exit(0)
 
 
 if __name__ == '__main__':
