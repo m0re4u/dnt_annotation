@@ -14,6 +14,7 @@ class GUI():
         self.root = tk.Tk()
         self.imgn = n
         self.add_images(folder, self.root)
+        self.root.wm_title("DNT Image Annotator")
         # Install a handler for the user explicitly closing a window using the
         # window manager.
         self.root.protocol("WM_DELETE_WINDOW", self.exit)
