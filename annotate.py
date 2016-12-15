@@ -1,15 +1,22 @@
 import os
 import glob
-import tkinter as tk
+import logging
 import argparse
+import tkinter as tk
 from PIL import Image, ImageOps, ImageTk
 
 
 class GUI():
-    """docstring for GUI"""
-    def __init__(self, folder):
+    """
+    GUI that displays the to-be-clicked images
+    """
+    def __init__(self, folder, n):
         self.root = tk.Tk()
+        self.imgn = n
         self.add_images(folder, self.root)
+        # Install a handler for the user explicitly closing a window using the
+        # window manager.
+        self.root.protocol("WM_DELETE_WINDOW", self.exit)
         try:
             self.root.mainloop()
         except KeyboardInterrupt as e:
@@ -27,11 +34,11 @@ class GUI():
         if len(tlist) > 0:
             # Current folder
             imdir = os.path.dirname(tlist[0][0])
-            # Create positive
+            # Create positive destination directory
             new = os.path.join(imdir, pos)
             if not os.path.exists(new):
                 os.mkdir(new)
-            # Create negative
+            # Create negative destination directory
             new = os.path.join(imdir, neg)
             if not os.path.exists(new):
                 os.mkdir(new)
@@ -44,6 +51,7 @@ class GUI():
                 new = os.path.join(imdir, pos, imfile)
             else:
                 new = os.path.join(imdir, neg, imfile)
+            # Similar to UNIX mv
             os.replace(item, new)
 
         self.root.destroy()
@@ -52,18 +60,19 @@ class GUI():
         """
         Load images in a Tkinter window
         """
+        # Get a list of images
         imlist = glob.glob(path+"*.png")
         selected = []
-        for i in range(0, 4):
-            for j in range(0, 4):
+        for i in range(0, self.imgn):
+            for j in range(0, self.imgn):
                 imindex = (i * 4) + j
-                print(imindex, len(imlist))
                 if imindex >= len(imlist):
                     break
                 p = imlist[imindex]
                 im = Image.open(p)
+                im = ImageOps.expand(im, border=5, fill='white')
                 pim = ImageTk.PhotoImage(im)
-                print("showing {}".format(p))
+                log.debug("showing {}".format(p))
                 label = tk.Label(root, image=pim)
                 label.image = im
                 label.pimage = pim
@@ -76,12 +85,12 @@ class GUI():
                     lambda x, y=selected: self.select_image(x, y)
                 )
 
-        ha = tk.Button(
+        tk.Button(
                 root,
                 text="Done",
                 command=lambda x=selected: self.process_selected(x)
             ).grid(row=10, column=0, sticky="S")
-        ha = tk.Button(
+        tk.Button(
                 root,
                 text="Quit",
                 command=self.exit
@@ -89,29 +98,42 @@ class GUI():
 
     def select_image(self, imp, selected):
         """
-        Selects an image to be a positive
+        Selects a negative image to be a positive, or a positive image to be a
+        negative
         """
         if imp.widget.clicked == 1:
-            print("Already clicked {}, unclicking".format(imp.widget.path))
-            new_im = imp.widget.image.crop(
-                (5, 5, imp.widget.image.size[0]-5, imp.widget.image.size[1]-5))
+            log.debug("Already clicked {}, unclicking".format(imp.widget.path))
+            # Change border to white
+            new_im = self.update_border(imp.widget.image, 'white', 5)
+            # Process and show image with updated border
             new_pim = ImageTk.PhotoImage(new_im)
             imp.widget.configure(image=new_pim)
             imp.widget.pimage = new_pim
             imp.widget.image = new_im
+            # Update click variables
             selected.remove((imp.widget.path, 1))
             imp.widget.clicked = 0
             selected.append((imp.widget.path, 0))
         else:
-            print("Clicked {}".format(imp.widget.path))
-            new_im = ImageOps.expand(imp.widget.image, border=5, fill='red')
+            log.debug("Clicked {}".format(imp.widget.path))
+            # Change border to red
+            new_im = self.update_border(imp.widget.image, 'red', 5)
+            # Process and show image with updated border
             new_pim = ImageTk.PhotoImage(new_im)
             imp.widget.configure(image=new_pim)
             imp.widget.pimage = new_pim
             imp.widget.image = new_im
+            # Update click variables
             selected.remove((imp.widget.path, 0))
             imp.widget.clicked = 1
             selected.append((imp.widget.path, 1))
+
+    def update_border(self, im, color, bsize):
+        # Remove old border
+        new_im = im.crop((bsize, bsize, im.size[0]-bsize, im.size[1]-bsize))
+        # Place new border
+        new_im = ImageOps.expand(new_im, border=bsize, fill=color)
+        return new_im
 
     def exit(self):
         self.root.destroy()
@@ -124,8 +146,18 @@ if __name__ == '__main__':
         'folder',
         help='data folder for images to be annotated'
     )
+    parser.add_argument(
+        'imgn',
+        metavar='N',
+        type=int,
+        help='N x N image display'
+    )
     args = parser.parse_args()
 
-    print(glob.glob(args.folder+"*.png"))
-    while len(glob.glob(args.folder+"*.png")) > 0:
-        GUI(args.folder)
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s %(levelname)s %(message)s')
+    log = logging.getLogger(__name__)
+
+    # As long as directory is not emty
+    while os.listdir(args.folder):
+        GUI(args.folder, args.imgn)
