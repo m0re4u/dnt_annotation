@@ -10,10 +10,10 @@ class GUI():
     """
     GUI that displays the to-be-clicked images
     """
-    def __init__(self, folder, n):
+    def __init__(self, folder, dimensions):
         self.root = tk.Tk()
-        self.imgn = n
-        self.add_images(folder, self.root)
+        self.dims = dimensions
+        self.add_images(folder)
         self.root.wm_title("DNT Image Annotator")
         # Install a handler for the user explicitly closing a window using the
         # window manager.
@@ -52,29 +52,31 @@ class GUI():
                 new = os.path.join(imdir, pos, imfile)
             else:
                 new = os.path.join(imdir, neg, imfile)
+                log.debug("Moving {} to {}".format(item, new))
             # Similar to UNIX mv
             os.replace(item, new)
 
         self.root.destroy()
 
-    def add_images(self, path, root):
+    def add_images(self, path):
         """
         Load images in a Tkinter window
         """
         # Get a list of images
-        imlist = glob.glob(path+"*.png")
+        imlist = glob.glob(path + "*.png")
         selected = []
-        for i in range(0, self.imgn):
-            for j in range(0, self.imgn):
-                imindex = (i * 4) + j
+        for i in range(0, self.dims[0]):
+            for j in range(0, self.dims[1]):
+                imindex = (i * self.dims[1]) + j
                 if imindex >= len(imlist):
                     break
                 p = imlist[imindex]
                 im = Image.open(p)
                 im = ImageOps.expand(im, border=5, fill='white')
                 pim = ImageTk.PhotoImage(im)
-                log.debug("showing {}".format(p))
-                label = tk.Label(root, image=pim)
+                log.debug("showing {} at position\
+                           {} with index {}".format(p, (i, j), imlist))
+                label = tk.Label(self.root, image=pim)
                 label.image = im
                 label.pimage = pim
                 label.path = p
@@ -87,12 +89,12 @@ class GUI():
                 )
 
         tk.Button(
-                root,
+                self.root,
                 text="Done",
                 command=lambda x=selected: self.process_selected(x)
             ).grid(row=10, column=0, sticky="S")
         tk.Button(
-                root,
+                self.root,
                 text="Quit",
                 command=self.exit
             ).grid(row=10, column=1, sticky="E")
@@ -142,23 +144,33 @@ class GUI():
 
 
 if __name__ == '__main__':
+    # Parse command line arguments
     parser = argparse.ArgumentParser(description='')
     parser.add_argument(
         'folder',
         help='data folder for images to be annotated'
     )
     parser.add_argument(
-        'imgn',
-        metavar='N',
+        'imgx',
+        metavar='X',
         type=int,
-        help='N x N image display'
+        help='X by Y image display'
+    )
+    parser.add_argument(
+        'imgy',
+        metavar='Y',
+        type=int,
+        help='X by Y image display'
     )
     args = parser.parse_args()
 
+    # Set logging configuration
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(levelname)s %(message)s')
     log = logging.getLogger(__name__)
 
     # As long as directory is not emty
-    while os.listdir(args.folder):
-        GUI(args.folder, args.imgn)
+    file_list = [f for f in os.listdir(args.folder)
+                 if os.path.isfile(os.path.join(args.folder, f))]
+    while file_list != []:
+        GUI(args.folder, (args.imgx, args.imgy))
