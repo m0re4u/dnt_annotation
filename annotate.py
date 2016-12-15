@@ -11,18 +11,33 @@ class GUI():
     GUI that displays the to-be-clicked images
     """
     def __init__(self, folder, dimensions):
+        # Start window
         self.root = tk.Tk()
-        self.dims = dimensions
-        self.add_images(folder)
         self.root.wm_title("DNT Image Annotator")
         # Install a handler for the user explicitly closing a window using the
         # window manager.
         self.root.protocol("WM_DELETE_WINDOW", self.exit)
+        # Add menu for quit/next
+        self.add_menu()
+        # Save display dimensions
+        self.dims = dimensions
+        # Display images in the window
+        self.add_images(folder)
         try:
             self.root.mainloop()
         except KeyboardInterrupt as e:
+            # Clean exit of the program when pressing Ctrl-C in command line
             print("Ctrl-C pressed, exiting cleanly..")
             self.exit()
+
+    def add_menu(self):
+        """
+        Add a menu stickied at the top of the window. The quit option cleanly
+        exits the program
+        """
+        self.menubar = tk.Menu(self.root)
+        self.menubar.add_command(label="Quit", command=self.exit)
+        self.root.config(menu=self.menubar)
 
     def process_selected(self, tlist):
         """
@@ -37,13 +52,16 @@ class GUI():
             imdir = os.path.dirname(tlist[0][0])
             # Create positive destination directory
             new = os.path.join(imdir, pos)
+            log.debug("New path: {}".format(new))
             if not os.path.exists(new):
                 os.mkdir(new)
             # Create negative destination directory
             new = os.path.join(imdir, neg)
+            log.debug("New path: {}".format(new))
             if not os.path.exists(new):
                 os.mkdir(new)
 
+        log.debug("tlist: {}".format(tlist))
         # Move selected images to the new directory
         for item, sel in tlist:
             # Only select filename
@@ -87,17 +105,20 @@ class GUI():
                     "<Button-1>",
                     lambda x, y=selected: self.select_image(x, y)
                 )
+        # Add a menu option to move to the next couple of images
+        self.menubar.add_command(
+            label="Next", command=lambda x=selected: self.process_selected(x))
 
-        tk.Button(
-                self.root,
-                text="Done",
-                command=lambda x=selected: self.process_selected(x)
-            ).grid(row=10, column=0, sticky="S")
-        tk.Button(
-                self.root,
-                text="Quit",
-                command=self.exit
-            ).grid(row=10, column=1, sticky="E")
+        # tk.Button(
+        #         self.root,
+        #         text="Done",
+        #         command=lambda x=selected: self.process_selected(x)
+        #     ).grid(row=10, column=0, sticky="S")
+        # tk.Button(
+        #         self.root,
+        #         text="Quit",
+        #         command=self.exit
+        #     ).grid(row=10, column=1, sticky="E")
 
     def select_image(self, imp, selected):
         """
