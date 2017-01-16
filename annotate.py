@@ -10,7 +10,7 @@ class GUI():
     """
     GUI that displays the to-be-clicked images
     """
-    def __init__(self, folder, dimensions):
+    def __init__(self, folder):
         # Start window
         self.root = tk.Tk()
         self.root.wm_title("DNT Image Annotator")
@@ -19,8 +19,8 @@ class GUI():
         self.root.protocol("WM_DELETE_WINDOW", self.exit)
         # Add menu for quit/next
         self.add_menu()
-        # Save display dimensions
-        self.dims = dimensions
+        # Fullscreen window
+        self.expand_window()
         # Display images in the window
         self.add_images(folder)
         try:
@@ -29,6 +29,14 @@ class GUI():
             # Clean exit of the program when pressing Ctrl-C in command line
             print("Ctrl-C pressed, exiting cleanly..")
             self.exit()
+
+    def expand_window(self):
+        """
+        Make the window fullscreen.
+        """
+        max_w = self.root.winfo_screenwidth()
+        max_h = self.root.winfo_screenheight()
+        self.root.geometry('%dx%d+0+0' % (max_w, max_h))
 
     def add_menu(self):
         """
@@ -83,42 +91,37 @@ class GUI():
         # Get a list of images
         imlist = glob.glob(path + "*.png")
         selected = []
-        for i in range(0, self.dims[0]):
-            for j in range(0, self.dims[1]):
-                imindex = (i * self.dims[1]) + j
-                if imindex >= len(imlist):
-                    break
-                p = imlist[imindex]
-                im = Image.open(p)
-                im = ImageOps.expand(im, border=5, fill='white')
-                pim = ImageTk.PhotoImage(im)
-                log.debug("showing {} at position\
-                           {} with index {}".format(p, (i, j), imlist))
-                label = tk.Label(self.root, image=pim)
-                label.image = im
-                label.pimage = pim
-                label.path = p
-                label.clicked = 0
-                label.grid(row=i, column=j)
-                selected.append((label.path, label.clicked))
-                label.bind(
-                    "<Button-1>",
-                    lambda x, y=selected: self.select_image(x, y)
-                )
+        xpos, ypos, nexty = (10, 20, 0)
+        for p in imlist:
+            im = Image.open(p)
+            im = ImageOps.expand(im, border=3, fill='white')
+            # If the next image would go beyond the screen, go to a new row
+            log.debug("imwidth {}".format(im.size[0]))
+            if xpos + im.size[1] > self.root.winfo_screenwidth() - 200:
+                xpos = 10
+                ypos += nexty + 20
+                nexty = 0
+            # Add the actual image
+            pim = ImageTk.PhotoImage(im)
+            label = tk.Label(self.root, image=pim)
+            label.image = im
+            label.pimage = pim
+            label.path = p
+            label.clicked = 0
+            # Place image at (x,y)
+            label.place(x=xpos, y=ypos)
+            selected.append((label.path, label.clicked))
+            label.bind(
+                "<Button-1>",
+                lambda x, y=selected: self.select_image(x, y)
+            )
+            xpos += im.size[0] + 10
+            # Take the highest image height as offset for next row
+            if im.size[1] > nexty:
+                nexty = im.size[1]
         # Add a menu option to move to the next couple of images
         self.menubar.add_command(
             label="Next", command=lambda x=selected: self.process_selected(x))
-
-        # tk.Button(
-        #         self.root,
-        #         text="Done",
-        #         command=lambda x=selected: self.process_selected(x)
-        #     ).grid(row=10, column=0, sticky="S")
-        # tk.Button(
-        #         self.root,
-        #         text="Quit",
-        #         command=self.exit
-        #     ).grid(row=10, column=1, sticky="E")
 
     def select_image(self, imp, selected):
         """
@@ -128,7 +131,7 @@ class GUI():
         if imp.widget.clicked == 1:
             log.debug("Already clicked {}, unclicking".format(imp.widget.path))
             # Change border to white
-            new_im = self.update_border(imp.widget.image, 'white', 5)
+            new_im = self.update_border(imp.widget.image, 'white', 3)
             # Process and show image with updated border
             new_pim = ImageTk.PhotoImage(new_im)
             imp.widget.configure(image=new_pim)
@@ -141,7 +144,7 @@ class GUI():
         else:
             log.debug("Clicked {}".format(imp.widget.path))
             # Change border to red
-            new_im = self.update_border(imp.widget.image, 'red', 5)
+            new_im = self.update_border(imp.widget.image, 'red', 3)
             # Process and show image with updated border
             new_pim = ImageTk.PhotoImage(new_im)
             imp.widget.configure(image=new_pim)
@@ -171,22 +174,10 @@ if __name__ == '__main__':
         'folder',
         help='data folder for images to be annotated'
     )
-    parser.add_argument(
-        'imgx',
-        metavar='X',
-        type=int,
-        help='X by Y image display'
-    )
-    parser.add_argument(
-        'imgy',
-        metavar='Y',
-        type=int,
-        help='X by Y image display'
-    )
     args = parser.parse_args()
 
     # Set logging configuration
-    logging.basicConfig(level=logging.INFO,
+    logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s %(levelname)s %(message)s')
     log = logging.getLogger(__name__)
 
@@ -194,4 +185,4 @@ if __name__ == '__main__':
     file_list = [f for f in os.listdir(args.folder)
                  if os.path.isfile(os.path.join(args.folder, f))]
     while file_list != []:
-        GUI(args.folder, (args.imgx, args.imgy))
+        GUI(args.folder)
