@@ -95,13 +95,17 @@ class GUI():
         for p in imlist:
             im = Image.open(p)
             im = ImageOps.expand(im, border=3, fill='white')
+            # If the next image will go beyond the screen height, exit
+            if ypos + im.size[1] > self.root.winfo_screenheight() - 100:
+                log.debug("Max height")
+                break
             # If the next image would go beyond the screen, go to a new row
-            log.debug("imwidth {}".format(im.size[0]))
-            if xpos + im.size[1] > self.root.winfo_screenwidth() - 200:
+            if xpos + im.size[0] > self.root.winfo_screenwidth() - 100:
+                log.debug("Next row")
                 xpos = 10
                 ypos += nexty + 20
                 nexty = 0
-            # Add the actual image
+            # Add the image w/ border to a Label
             pim = ImageTk.PhotoImage(im)
             label = tk.Label(self.root, image=pim)
             label.image = im
@@ -180,6 +184,8 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s %(levelname)s %(message)s')
     log = logging.getLogger(__name__)
+    # Disable debug msgs from PIL
+    logging.getLogger("PIL").setLevel(logging.WARNING)
 
     # As long as directory is not emty
     file_list = [f for f in os.listdir(args.folder)
